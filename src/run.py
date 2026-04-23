@@ -100,6 +100,59 @@ def score_opportunity(item: dict[str, Any], focus_terms: list[str]) -> tuple[flo
     return round(score, 2), reasons
 
 
+def write_support_artifacts(out: Path) -> None:
+    offer_pack = (
+        "# Grant Service Offer Pack\n\n"
+        "## Tiers\n"
+        "- Starter: $349 (shortlist + fit scoring)\n"
+        "- Growth: $899 (shortlist + 3 briefs + checklist)\n"
+        "- Operator: $1,899 (pipeline + drafting support)\n\n"
+        "## Stripe links\n"
+        "- Starter: https://buy.stripe.com/grants-starter-placeholder\n"
+        "- Growth: https://buy.stripe.com/grants-growth-placeholder\n"
+        "- Operator: https://buy.stripe.com/grants-operator-placeholder\n\n"
+        "## Onboarding form\n"
+        "https://forms.gle/grants-onboarding-placeholder\n"
+    )
+    (out / "offer_pack.md").write_text(offer_pack, encoding="utf-8")
+
+    outreach = (
+        "# Outreach Hooks\n\n"
+        "## Hook 1\n"
+        "I mapped grant opportunities that fit your org profile and funding goals. Want the shortlist?\n\n"
+        "## Hook 2\n"
+        "I can send a fit-ranked queue and exact next actions for this cycle.\n\n"
+        "## Compliance line\n"
+        "If this is not relevant, reply unsubscribe and I will stop outreach.\n"
+    )
+    (out / "outreach_templates.md").write_text(outreach, encoding="utf-8")
+
+    weekly = (
+        "# Weekly Update Routine\n\n"
+        "- Monday: ingest new opportunities\n"
+        "- Tuesday: rerun fit scoring\n"
+        "- Wednesday: update top-10 pursuit queue\n"
+        "- Thursday: draft narratives/checklists\n"
+        "- Friday: send client status memo\n"
+    )
+    (out / "weekly_update_routine.md").write_text(weekly, encoding="utf-8")
+
+    with open(out / "outbound_audit_log.csv", "w", encoding="utf-8", newline="") as f:
+        fields = [
+            "timestamp_utc",
+            "operator",
+            "channel",
+            "contact",
+            "consent_status",
+            "unsubscribe_status",
+            "campaign_id",
+            "message_id",
+            "notes",
+        ]
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+
+
 def main() -> None:
     args = parse_args()
     out = Path(args.output)
@@ -131,6 +184,7 @@ def main() -> None:
             "url": item.get("url", ""),
             "fit_score": score,
             "reasons": "; ".join(reasons),
+            "stripe_link": "https://buy.stripe.com/grants-growth-placeholder",
         }
         scored.append(rec)
 
@@ -142,7 +196,9 @@ def main() -> None:
             f"- Funding amount: {rec['funding_amount']}\n"
             f"- Deadline: {rec['deadline']}\n"
             f"- Fit score: {rec['fit_score']}/100\n"
-            f"- URL: {rec['url']}\n\n"
+            f"- URL: {rec['url']}\n"
+            f"- Service checkout: {rec['stripe_link']}\n"
+            f"- Onboarding form: https://forms.gle/grants-onboarding-placeholder\n\n"
             f"## Why this is prioritized\n"
             f"- {reasons_bulleted}\n\n"
             f"## Next actions\n"
@@ -155,7 +211,7 @@ def main() -> None:
     scored.sort(key=lambda x: x["fit_score"], reverse=True)
 
     with open(out / "pursuit_queue.csv", "w", encoding="utf-8", newline="") as f:
-        fields = ["title", "agency", "funding_amount", "deadline", "fit_score", "reasons", "url"]
+        fields = ["title", "agency", "funding_amount", "deadline", "fit_score", "reasons", "stripe_link", "url"]
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
         writer.writerows(scored)
@@ -170,6 +226,7 @@ def main() -> None:
     )
     (out / "application_checklist.md").write_text(checklist, encoding="utf-8")
 
+    write_support_artifacts(out)
     print(f"Generated {len(scored)} opportunity briefs -> {out / 'pursuit_queue.csv'}")
 
 
